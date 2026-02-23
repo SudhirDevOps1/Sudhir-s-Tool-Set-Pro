@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #030712;
+  --card: #111827;
+  --card-hover: #1f2937;
+  --accent: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.15);
+  --text: #f3f4f6;
+  --text-dim: #9ca3af;
+  --success: #10b981;
+  --warn: #fbbf24;
+  --error: #ef4444;
+  --code-bg: #000000;
+  --git-color: #f05032;
+  --header-bg: rgba(3, 7, 18, 0.8);
+}
+
+[data-theme="cyber"] {
+  --bg: #0d0221;
+  --card: #0f084b;
+  --accent: #00ffcc;
+  --accent-glow: rgba(0, 255, 204, 0.2);
+  --text: #e0fbfc;
+  --git-color: #ff00ff;
+  --header-bg: rgba(13, 2, 33, 0.8);
+}
+
+[data-theme="neon"] {
+  --bg: #000000;
+  --card: #1a1a1a;
+  --accent: #ccff00;
+  --accent-glow: rgba(204, 255, 0, 0.2);
+  --text: #ffffff;
+  --git-color: #ff3e00;
+  --header-bg: rgba(0, 0, 0, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background 0.3s ease;
+}
+
+code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}

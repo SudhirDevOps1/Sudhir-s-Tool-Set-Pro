@@ -41,7 +41,7 @@ const guideSteps: GuideStep[] = [
     step: 3,
     title: 'Video URL Copy Karo',
     description: 'YouTube se video ka URL copy karo. Short URL (youtu.be) ya full URL (youtube.com/watch?v=) dono chalega.',
-    command: 'https://youtu.be/OsDgpJNIVH4?si=ifDq9pF1Xl2hP5qG',
+    command: 'https://youtu.be/example',
     icon: <Copy className="w-5 h-5" />,
     tip: 'Playlist URL bhi de sakte ho — saari videos ek saath download hongi!',
   },
@@ -49,7 +49,7 @@ const guideSteps: GuideStep[] = [
     step: 4,
     title: 'Thumbnail ke Saath Video Download',
     description: 'Ye command video ko best quality mein download karega, thumbnail embed karega aur alag file mein bhi save karega.',
-    command: 'yt-dlp -f "bestvideo[height<=1080]+bestaudio/best" ^\n  --merge-output-format mp4 ^\n  --embed-thumbnail ^\n  --write-thumbnail ^\n  --add-metadata ^\n  -o "D:\\Videos\\%(title)s.%(ext)s" ^\n  "https://youtu.be/OsDgpJNIVH4?si=ifDq9pF1Xl2hP5qG"',
+    command: 'yt-dlp -f "bestvideo[height<=1080]+bestaudio/best" ^\n  --merge-output-format mp4 ^\n  --embed-thumbnail ^\n  --write-thumbnail ^\n  --add-metadata ^\n  -o "D:\\Videos\\%(title)s.%(ext)s" ^\n  "https://youtu.be/example"',
     icon: <Video className="w-5 h-5" />,
     tip: '--embed-thumbnail video file ke andar thumbnail daal deta hai, --write-thumbnail alag JPG/WebP file save karta hai.',
   },
@@ -72,7 +72,7 @@ const guideSteps: GuideStep[] = [
 ];
 
 export function ThumbnailDownloader({ visible, onCopy, showToast }: Props) {
-  const [url, setUrl] = useState('https://youtu.be/OsDgpJNIVH4?si=ifDq9pF1Xl2hP5qG');
+  const [url, setUrl] = useState('https://youtu.be/example');
   const [outputPath, setOutputPath] = useState('D:\\Videos\\');
   const [quality, setQuality] = useState('1080');
   const [embedThumbnail, setEmbedThumbnail] = useState(true);
@@ -543,7 +543,7 @@ export function ThumbnailDownloader({ visible, onCopy, showToast }: Props) {
             variant="ghost"
             className="w-full justify-center"
             onClick={() => {
-              setUrl('https://youtu.be/OsDgpJNIVH4?si=ifDq9pF1Xl2hP5qG');
+              setUrl('https://youtu.be/example');
               setQuality('1080');
               setFormat('mp4');
               setEmbedThumbnail(true);
@@ -567,7 +567,7 @@ export function ThumbnailDownloader({ visible, onCopy, showToast }: Props) {
             variant="ghost"
             className="w-full justify-center"
             onClick={() => {
-              setUrl('https://youtu.be/OsDgpJNIVH4?si=ifDq9pF1Xl2hP5qG');
+              setUrl('https://youtu.be/example');
               showToast('Example URL loaded!');
             }}
           >

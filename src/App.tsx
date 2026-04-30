@@ -1,334 +1,490 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, History, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Github,
+  Cpu,
+  Send,
+  Book,
+  Shield,
+  Settings,
+  Check,
+  AlertCircle,
+  Keyboard,
+} from 'lucide-react';
+import { useTheme } from './hooks/useTheme';
+import { useToast } from './hooks/useToast';
+import { copyToClipboard } from './utils/clipboard';
 import { Header } from './components/Header';
-import { DownloadForm } from './components/DownloadForm';
-import { HistoryList } from './components/HistoryList';
-import { Footer } from './components/Footer';
-import { ToastContainer, useToast } from './components/Toast';
-import { useDownloader } from './hooks/useDownloader';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import type { DownloadRecord, AppSettings } from './types';
-import { downloadFile } from './utils/apiFallback';
+import { EnvironmentStatus } from './components/sections/EnvironmentStatus';
+import { CommandBuilder } from './components/sections/CommandBuilder';
+import { GitHubMastery } from './components/sections/GitHubMastery';
+import { Troubleshooting } from './components/sections/Troubleshooting';
+import { TroubleshootingEnhanced } from './components/sections/TroubleshootingEnhanced';
+import { DownloadManager } from './components/sections/DownloadManager';
+import { Ethics } from './components/sections/Ethics';
+import { ThumbnailDownloader } from './components/sections/ThumbnailDownloader';
 
-// ─── BeforeInstallPromptEvent ─────────────────────────────────────────────────
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-// ─── Stats bar ────────────────────────────────────────────────────────────────
-
-const STATS = [
-  { value: '10+', label: 'Platforms' },
-  { value: '5', label: 'API Providers' },
-  { value: '100%', label: 'Free' },
-  { value: '0', label: 'API Keys Needed' },
+const navItems = [
+  { href: '#ready', label: '⚡ System Ready?' },
+  { href: '#builder', label: '🚀 Command Builder' },
+  { href: '#thumbnail-downloader', label: '🖼️ Thumbnail Downloader' },
+  { href: '#github', label: 'Git Workflow' },
+  { href: '#troubleshoot', label: '🛠 Troubleshooting' },
+  { href: '#troubleshoot-enhanced', label: '🔧 Advanced Solutions' },
+  { href: '#manager', label: '📥 Download Manager' },
+  { href: '#best', label: 'Ethics' },
 ];
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+const sectionIds = ['ready', 'builder', 'thumbnail-downloader', 'github', 'troubleshoot', 'troubleshoot-enhanced', 'manager', 'best'];
 
-const App: React.FC = () => {
-  // Settings
-  const [settings, setSettings] = useLocalStorage<AppSettings>('app-settings', {
-    theme: 'dark',
-    defaultFormat: 'mp4',
-    defaultQuality: '1080',
-    defaultMode: 'auto',
-  });
+export function App() {
+  const { theme, setTheme, cycleTheme } = useTheme();
+  const { visible: toastVisible, message: toastMessage, isError: toastIsError, showToast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [downloadCount] = useState(() => parseInt(localStorage.getItem('downloadCount') || '0'));
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
-  // Apply dark mode to <html>
+  // Determine which sections are visible based on search
+  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
-    const root = document.documentElement;
-    if (settings.theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    if (!searchQuery.trim()) {
+      const all: Record<string, boolean> = {};
+      sectionIds.forEach((id) => (all[id] = true));
+      setSectionVisibility(all);
+      return;
     }
-  }, [settings.theme]);
 
-  const toggleTheme = () => {
-    setSettings((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }));
-  };
+    // For search filtering, we check the text content approach
+    const query = searchQuery.toLowerCase();
+    const vis: Record<string, boolean> = {};
 
-  // PWA install
-  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
-  const [showInstall, setShowInstall] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      installPromptRef.current = e as BeforeInstallPromptEvent;
-      setShowInstall(true);
+    // Section content mapping for search
+    const sectionContent: Record<string, string> = {
+      ready: 'environment status yt-dlp core ffmpeg engine full setup install windows linux mac version update',
+      builder: 'smart command generator media type video audio format mp4 mkv mp3 m4a quality speed scope playlist url presets yt music 1080p',
+      'thumbnail-downloader': 'thumbnail downloader media grabber embed thumbnail write thumbnail metadata video quality output path format mp4 mkv webm extract separate file',
+      github: 'github mastery git add commit push pull origin main stage sync cloud local',
+      troubleshoot: 'troubleshooting fixes no audio merging ffmpeg path fragmented streams slow speed connection geo-blocked bypass proxy metadata cookies',
+      'troubleshoot-enhanced': 'troubleshooting solutions network errors retries socket timeout age-restricted cookies user-agent extract specific formats common solutions update clear cache force ipv4 ignore errors custom headers',
+      manager: 'download manager advanced options max download speed throttling sleep concurrent fragments resume failed downloads ignore errors add metadata',
+      best: 'educational ethical use personal archival educational research copyright laws terms of service',
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
 
-  const handleInstallPWA = async () => {
-    if (!installPromptRef.current) return;
-    await installPromptRef.current.prompt();
-    const { outcome } = await installPromptRef.current.userChoice;
-    if (outcome === 'accepted') setShowInstall(false);
-  };
+    sectionIds.forEach((id) => {
+      vis[id] = (sectionContent[id] || '').includes(query);
+    });
 
-  // Downloader
-  const {
-    state,
-    progressMsg,
-    history,
-    fetchInfo,
-    triggerDownload,
-    reset,
-    deleteRecord,
-    clearHistory,
-    refreshHistory,
-  } = useDownloader();
+    setSectionVisibility(vis);
+  }, [searchQuery]);
 
-  // Toast
-  const { toasts, addToast, dismissToast } = useToast();
+  const handleCopy = useCallback(
+    async (text: string) => {
+      const success = await copyToClipboard(text);
+      if (success) {
+        showToast('Copied!');
+      } else {
+        showToast('Copy failed. Select and copy manually.', true);
+      }
+    },
+    [showToast]
+  );
 
-  // Load history on mount
+  // Keyboard shortcuts
   useEffect(() => {
-    refreshHistory();
-  }, [refreshHistory]);
-
-  // Show toast on status changes
-  useEffect(() => {
-    if (state.status === 'done') {
-      addToast('✅ Download started successfully!', 'success');
-    } else if (state.status === 'error' && state.error) {
-      addToast('❌ ' + state.error.split('\n')[0], 'error', 6000);
-    }
-  }, [state.status, state.error, addToast]);
-
-  // Active tab
-  const [activeTab, setActiveTab] = useState<'downloader' | 'history'>('downloader');
-
-  // Re-download from history
-  const handleRedownload = async (record: DownloadRecord) => {
-    try {
-      addToast('⬇️ Re-downloading…', 'info');
-      await downloadFile(record.mediaInfo.url, record.mediaInfo.filename);
-      addToast('✅ Re-download started!', 'success');
-    } catch {
-      addToast('❌ Re-download failed. The link may have expired.', 'error');
-    }
-  };
+    const handler = (e: KeyboardEvent) => {
+      // Ctrl + K: Search
+      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        document.getElementById('searchBar')?.focus();
+      }
+      // Alt + T: Cycle Themes
+      if (e.altKey && e.key.toLowerCase() === 't') {
+        const next = cycleTheme();
+        showToast(`Theme: ${next.toUpperCase()}`);
+      }
+      // Escape: Close modals
+      if (e.key === 'Escape') {
+        setShowShortcuts(false);
+      }
+      // ?: Help
+      if (e.key === '?' && (e.target as HTMLElement).tagName !== 'INPUT') {
+        setShowShortcuts((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [cycleTheme, showToast]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white transition-colors duration-300">
-      {/* Header */}
-      <Header
-        theme={settings.theme}
-        onThemeToggle={toggleTheme}
-        onInstallPWA={handleInstallPWA}
-        showInstall={showInstall}
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      {/* Background Glow */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 10% 20%, var(--accent-glow) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(240,80,50,0.05) 0%, transparent 40%)',
+          zIndex: 0,
+        }}
       />
 
-      <main>
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-700 dark:from-violet-900 dark:via-indigo-900 dark:to-blue-950">
-          {/* Background decoration */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/5 rounded-full" />
-          </div>
+      {/* Header */}
+      <Header theme={theme} setTheme={setTheme} searchQuery={searchQuery} onSearch={setSearchQuery} />
 
-          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 text-center">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-sm text-white/90 font-medium mb-6">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Free · No Sign-up · No Limits
+      {/* Main Content */}
+      <div className="max-w-[1000px] mx-auto px-5 py-5 relative z-10">
+        {/* Quick Nav */}
+        <div className="flex flex-wrap gap-2.5 my-5">
+          {navItems.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="no-underline text-sm px-3 py-2 rounded-full transition-all duration-200"
+              style={{
+                color: 'var(--text)',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.color = 'var(--accent)';
+                e.currentTarget.style.background = 'rgba(56,189,248,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.color = 'var(--text)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+
+        {/* Sections */}
+        <EnvironmentStatus visible={sectionVisibility['ready'] ?? true} onCopy={handleCopy} />
+        <CommandBuilder visible={sectionVisibility['builder'] ?? true} onCopy={handleCopy} showToast={showToast} />
+        <ThumbnailDownloader visible={sectionVisibility['thumbnail-downloader'] ?? true} onCopy={handleCopy} showToast={showToast} />
+        <GitHubMastery visible={sectionVisibility['github'] ?? true} />
+        <Troubleshooting visible={sectionVisibility['troubleshoot'] ?? true} />
+        <Ethics visible={sectionVisibility['best'] ?? true} />
+        <TroubleshootingEnhanced visible={sectionVisibility['troubleshoot-enhanced'] ?? true} />
+        <DownloadManager visible={sectionVisibility['manager'] ?? true} showToast={showToast} />
+      </div>
+
+      {/* HUD Shortcuts (Desktop) */}
+      <div
+        className="fixed left-5 bottom-5 hidden md:grid gap-2 px-3 py-2.5 rounded-2xl text-xs z-50"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          color: 'var(--text-dim)',
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        <div>
+          <kbd className="bg-gray-700 px-1 py-0.5 rounded text-white text-xs font-mono shadow-[0_2px_0_#111]">
+            Ctrl
+          </kbd>{' '}
+          +{' '}
+          <kbd className="bg-gray-700 px-1 py-0.5 rounded text-white text-xs font-mono shadow-[0_2px_0_#111]">
+            K
+          </kbd>{' '}
+          Search
+        </div>
+        <div>
+          <kbd className="bg-gray-700 px-1 py-0.5 rounded text-white text-xs font-mono shadow-[0_2px_0_#111]">
+            ?
+          </kbd>{' '}
+          Shortcuts Help
+        </div>
+      </div>
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-5 right-5 flex gap-2.5 items-center flex-wrap z-50">
+        <button
+          className="px-3 py-2 rounded-lg cursor-pointer font-bold flex items-center gap-2 transition-all duration-200 text-sm"
+          style={{
+            background: 'rgba(56,189,248,0.1)',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent)',
+          }}
+          onClick={() => setShowGuideModal(true)}
+          title="Show Guide"
+        >
+          <Book className="w-4 h-4" /> Guide
+        </button>
+        <button
+          className="px-3 py-2 rounded-lg cursor-pointer font-bold flex items-center gap-2 transition-all duration-200 text-sm"
+          style={{
+            background: 'rgba(56,189,248,0.1)',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent)',
+          }}
+          onClick={() => setShowRulesModal(true)}
+          title="Usage Rules"
+        >
+          <Shield className="w-4 h-4" /> Rules
+        </button>
+        <button
+          className="px-3 py-2 rounded-lg cursor-pointer font-bold flex items-center gap-2 transition-all duration-200 text-sm"
+          style={{
+            background: 'rgba(56,189,248,0.1)',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent)',
+          }}
+          onClick={() => showToast('Advanced options ready!')}
+          title="Advanced Options"
+        >
+          <Settings className="w-4 h-4" /> Advanced
+        </button>
+        <div
+          className="px-3 py-2 rounded-lg text-sm font-bold"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--accent)',
+          }}
+        >
+          <span style={{ color: 'var(--accent)' }}>Downloads: </span>
+          <span>{downloadCount}</span>
+        </div>
+      </div>
+
+      {/* In-App Guide Modal */}
+      {showGuideModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-[1000]"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowGuideModal(false)}
+        >
+          <div
+            className="w-[90%] max-w-[560px] rounded-2xl overflow-hidden"
+            style={{ background: 'var(--card)', border: '2px solid var(--accent)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(240,80,50,0.1))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 className="m-0 text-xl font-bold flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                <Book className="w-5 h-5" /> Download Guide
+              </h3>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full cursor-pointer"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-dim)' }}
+              >
+                ✕
+              </button>
             </div>
-
-            {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-5 leading-tight">
-              Download Videos{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-300">
-                Anywhere
-              </span>
-            </h1>
-            <p className="text-lg sm:text-xl text-white/80 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Download videos and audio from YouTube, TikTok, Instagram, Twitter,
-              Facebook and 10+ more platforms — completely free, no API keys needed.
-            </p>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl mx-auto">
-              {STATS.map(({ value, label }) => (
+            <div className="px-6 py-5 space-y-4">
+              {[
+                { num: '1️⃣', text: 'Media Type select karo — Video ya Audio' },
+                { num: '2️⃣', text: 'Format choose karo — MP4, MP3, MKV etc.' },
+                { num: '3️⃣', text: 'Quality set karo — Best, 1080p, 720p' },
+                { num: '4️⃣', text: 'URL paste karo — YouTube ka link' },
+                { num: '5️⃣', text: 'Copy Command click karo aur Terminal mein paste karo' },
+                { num: '🖼️', text: 'Thumbnail ke liye — Thumbnail Downloader section use karo' },
+              ].map((item, i) => (
                 <div
-                  key={label}
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3"
+                  key={i}
+                  className="flex items-start gap-3 p-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
                 >
-                  <div className="text-2xl font-extrabold text-white">{value}</div>
-                  <div className="text-xs text-white/70 font-medium">{label}</div>
+                  <span className="text-lg">{item.num}</span>
+                  <span className="text-sm" style={{ lineHeight: 1.7 }}>{item.text}</span>
                 </div>
               ))}
             </div>
-
-            {/* Scroll cue */}
-            <div className="mt-10 flex justify-center">
-              <a
-                href="#downloader"
-                className="flex flex-col items-center gap-1 text-white/50 hover:text-white/80 transition-colors"
+            <div className="px-6 pb-5">
+              <button
+                className="w-full py-2.5 rounded-xl cursor-pointer font-bold text-sm"
+                style={{ background: 'var(--accent)', color: 'var(--bg)', border: '1px solid var(--accent)' }}
+                onClick={() => setShowGuideModal(false)}
               >
-                <span className="text-xs">Start Downloading</span>
-                <ChevronDown className="w-5 h-5 animate-bounce" />
-              </a>
+                Samajh Gaya! ✅
+              </button>
             </div>
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Main Content */}
-        <section
-          id="downloader"
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
+      {/* In-App Rules Modal */}
+      {showRulesModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-[1000]"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowRulesModal(false)}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* ── Left panel: Downloader ── */}
-            <div className="lg:col-span-2">
-              {/* Tabs */}
-              <div className="flex gap-1 p-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl mb-6 shadow-sm">
-                <button
-                  onClick={() => setActiveTab('downloader')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    activeTab === 'downloader'
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  ⬇️ Downloader
-                </button>
-                <button
-                  id="history"
-                  onClick={() => setActiveTab('history')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    activeTab === 'history'
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  <History className="w-4 h-4" />
-                  History
-                  {history.length > 0 && (
-                    <span className="px-1.5 py-0.5 bg-white/20 rounded-full text-xs">
-                      {history.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Panel */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 sm:p-6 shadow-sm">
-                {activeTab === 'downloader' ? (
-                  <DownloadForm
-                    onFetch={fetchInfo}
-                    onDownload={triggerDownload}
-                    onReset={reset}
-                    status={state.status}
-                    progress={state.progress}
-                    progressMsg={progressMsg}
-                    error={state.error}
-                    mediaInfo={state.mediaInfo}
-                  />
-                ) : (
-                  <HistoryList
-                    records={history}
-                    onRedownload={handleRedownload}
-                    onDelete={deleteRecord}
-                    onClearAll={clearHistory}
-                  />
-                )}
-              </div>
+          <div
+            className="w-[90%] max-w-[560px] rounded-2xl overflow-hidden"
+            style={{ background: 'var(--card)', border: '2px solid var(--success)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(56,189,248,0.05))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 className="m-0 text-xl font-bold flex items-center gap-2" style={{ color: 'var(--success)' }}>
+                <Shield className="w-5 h-5" /> Usage Rules
+              </h3>
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full cursor-pointer"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-dim)' }}
+              >
+                ✕
+              </button>
             </div>
-
-            {/* ── Right panel: Info & Tips ── */}
-            <div className="space-y-5">
-              {/* How it works */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center text-sm">
-                    💡
-                  </span>
-                  How it works
-                </h3>
-                <ol className="space-y-3">
-                  {[
-                    { step: '1', text: 'Paste any video URL into the input field' },
-                    { step: '2', text: 'Choose your preferred format and quality' },
-                    { step: '3', text: 'Click "Get Download Link" to fetch media info' },
-                    { step: '4', text: 'Preview the video, then click "Download Now"' },
-                  ].map(({ step, text }) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 font-bold text-xs flex items-center justify-center">
-                        {step}
-                      </span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 leading-snug">
-                        {text}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {/* API Fallback info */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-sm">
-                    🔄
-                  </span>
-                  Multi-Tier Fallback
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { tier: '1', name: 'Cobalt API', desc: 'Open-source, community hosted', color: 'text-green-600 dark:text-green-400' },
-                    { tier: '2', name: 'Invidious', desc: 'YouTube alternative frontend', color: 'text-blue-600 dark:text-blue-400' },
-                    { tier: '3', name: 'Piped API', desc: 'Privacy-first YouTube proxy', color: 'text-violet-600 dark:text-violet-400' },
-                    { tier: '4', name: 'Serverless', desc: 'Vercel /api/download (optional)', color: 'text-orange-600 dark:text-orange-400' },
-                  ].map(({ tier, name, desc, color }) => (
-                    <div key={tier} className="flex items-start gap-2.5">
-                      <span className={`text-xs font-bold ${color} mt-0.5`}>T{tier}</span>
-                      <div>
-                        <p className={`text-sm font-semibold ${color}`}>{name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
-                      </div>
-                    </div>
-                  ))}
+            <div className="px-6 py-5 space-y-3">
+              {[
+                { icon: '⚖️', text: 'Copyright Laws ka respect karo — pirated content download mat karo' },
+                { icon: '📚', text: 'Personal use aur Educational purpose ke liye hi use karo' },
+                { icon: '❤️', text: 'Content creators ko support karo — official platforms pe watch karo' },
+                { icon: '📜', text: 'Platforms ke Terms of Service check karo pehle' },
+                { icon: '🚫', text: 'Downloaded content ko commercially distribute mat karo' },
+                { icon: '✅', text: 'Archival aur backup ke liye use karna best practice hai' },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-sm" style={{ lineHeight: 1.7 }}>{item.text}</span>
                 </div>
-              </div>
-
-              {/* Supported formats */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center text-sm">
-                    🎞️
-                  </span>
-                  Supported Formats
-                </h3>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {['MP4', 'WebM', 'MKV', 'GIF', 'MP3', 'OGG', 'OPUS', 'WAV'].map((fmt) => (
-                    <span
-                      key={fmt}
-                      className="text-center text-xs font-mono font-bold py-1 px-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
-                    >
-                      {fmt}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              ))}
+            </div>
+            <div className="px-6 pb-5">
+              <button
+                className="w-full py-2.5 rounded-xl cursor-pointer font-bold text-sm"
+                style={{ background: 'var(--success)', color: 'var(--bg)', border: '1px solid var(--success)' }}
+                onClick={() => setShowRulesModal(false)}
+              >
+                Samajh Gaya! ✅
+              </button>
             </div>
           </div>
-        </section>
-      </main>
+        </div>
+      )}
 
-      <Footer />
+      {/* Shortcuts Overlay */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-[1000]"
+          style={{
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(5px)',
+          }}
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div
+            className="w-[90%] max-w-[500px] p-8 rounded-2xl"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--accent)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mt-0 flex items-center gap-2 text-xl">
+              <Keyboard className="w-5 h-5" /> Keyboard Shortcuts
+            </h3>
+            {[
+              { label: 'Search Documentation', key: 'Ctrl + K' },
+              { label: 'Generate & Copy Cmd', key: 'Ctrl + Enter' },
+              { label: 'Toggle Theme', key: 'Alt + T' },
+              { label: 'Close Modals', key: 'Esc' },
+            ].map((item) => (
+              <div
+                key={item.key}
+                className="flex justify-between py-2.5"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <span>{item.label}</span>
+                <kbd className="bg-gray-700 px-1.5 py-0.5 rounded text-white text-xs font-mono shadow-[0_2px_0_#111]">
+                  {item.key}
+                </kbd>
+              </div>
+            ))}
+            <button
+              className="w-full mt-5 px-4 py-2.5 rounded-lg cursor-pointer font-bold flex items-center justify-center gap-2 transition-all duration-200 text-sm"
+              style={{
+                background: 'rgba(56,189,248,0.1)',
+                color: 'var(--accent)',
+                border: '1px solid var(--accent)',
+              }}
+              onClick={() => setShowShortcuts(false)}
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Toast notifications */}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {/* Toast */}
+      <div
+        className="fixed bottom-8 right-8 flex items-center gap-2.5 px-6 py-3 rounded-xl z-[1000] max-w-[min(520px,calc(100vw-40px))] transition-all duration-300"
+        style={{
+          background: 'var(--card)',
+          color: 'var(--text)',
+          border: `1px solid ${toastIsError ? 'var(--error)' : 'var(--accent)'}`,
+          transform: toastVisible ? 'translateY(0)' : 'translateY(100px)',
+          opacity: toastVisible ? 1 : 0,
+          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)',
+          transitionTimingFunction: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          pointerEvents: toastVisible ? 'auto' : 'none',
+        }}
+      >
+        {toastIsError ? <AlertCircle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+        {toastMessage}
+      </div>
+
+      {/* Footer */}
+      <footer
+        className="px-5 py-10 text-center mt-10"
+        style={{
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          background: 'var(--card)',
+        }}
+      >
+        <div className="flex justify-center gap-5 mb-5">
+          <a
+            href="https://github.com/yt-dlp/yt-dlp"
+            target="_blank"
+            rel="noreferrer"
+            title="Official yt-dlp"
+            className="transition-colors duration-300"
+            style={{ color: 'var(--text-dim)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            <Github className="w-5 h-5" />
+          </a>
+          <a
+            href="https://ffmpeg.org/"
+            target="_blank"
+            rel="noreferrer"
+            title="FFmpeg Project"
+            className="transition-colors duration-300"
+            style={{ color: 'var(--text-dim)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            <Cpu className="w-5 h-5" />
+          </a>
+          <a
+            href="#"
+            title="Sudhir on Telegram"
+            className="transition-colors duration-300"
+            style={{ color: 'var(--text-dim)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            <Send className="w-5 h-5" />
+          </a>
+        </div>
+        <p>
+          Handcrafted by <strong>Sudhir</strong> • © 2025
+        </p>
+        <p className="text-xs mt-2.5" style={{ color: 'var(--text-dim)' }}>
+          Industrial Grade DevOps Tooling Interface v2.5
+        </p>
+      </footer>
     </div>
   );
-};
-
-export default App;
+}

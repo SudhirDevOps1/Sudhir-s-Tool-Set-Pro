@@ -1,0 +1,28 @@
+{
+  "name": "SocialDL – Social Media Downloader",
+  "short_name": "SocialDL",
+  "description": "Download videos from YouTube, TikTok, Instagram, Twitter and more — free, no sign-up.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait-primary",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Download Video",
+      "short_name": "Download",
+      "description": "Quickly download a video",
+      "url": "/#downloader",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}
